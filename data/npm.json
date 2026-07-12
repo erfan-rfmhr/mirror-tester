@@ -1,0 +1,8 @@
+{
+  "package": "lodash",
+  "mirrors": [
+    "https://registry.npmjs.org/",
+    "https://package-mirror.liara.ir/repository/npm/",
+    "https://npm.devneeds.ir/"
+  ]
+}
