@@ -23,7 +23,7 @@ and recommends the fastest one.
 
 ```bash
 git clone <this-repo>
-cd mirror-benchmark
+cd mirror-tester
 ```
 
 ## Build
