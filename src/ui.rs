@@ -139,7 +139,7 @@ fn draw_fastest(frame: &mut Frame, area: Rect, app: &App) {
 
 fn draw_status(frame: &mut Frame, area: Rect, app: &App) {
     let help = format!(
-        "{}   [q] Quit   [r] Run Benchmark   [up/down] Switch",
+        "{}   [q] Quit   [Enter] Run Benchmark   [up/down] Switch",
         app.status
     );
     let widget = Paragraph::new(help).block(Block::default().borders(Borders::ALL));
