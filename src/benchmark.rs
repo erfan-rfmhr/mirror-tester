@@ -82,7 +82,7 @@ pub async fn benchmark_mirror(pm: PackageManager, package: &str, mirror: &str) -
     }
 }
 
-/// Benchmarks a list of mirrors in parallel and returns results sorted by
+/// Benchmarks a list of mirrors sequentially and returns results sorted by
 /// average latency (fastest first). Mirrors that time out completely are
 /// sorted to the end.
 pub async fn benchmark_all(
@@ -90,19 +90,10 @@ pub async fn benchmark_all(
     package: &str,
     mirrors: &[String],
 ) -> Vec<BenchmarkResult> {
-    let mut set = tokio::task::JoinSet::new();
+    let mut results = Vec::with_capacity(mirrors.len());
 
     for mirror in mirrors {
-        let package = package.to_string();
-        let mirror = mirror.clone();
-        set.spawn(async move { benchmark_mirror(pm, &package, &mirror).await });
-    }
-
-    let mut results = Vec::with_capacity(mirrors.len());
-    while let Some(res) = set.join_next().await {
-        if let Ok(benchmark_result) = res {
-            results.push(benchmark_result);
-        }
+        results.push(benchmark_mirror(pm, package, mirror).await);
     }
 
     results.sort_by(|a, b| match (a.timed_out, b.timed_out) {
