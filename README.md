@@ -7,7 +7,7 @@ and recommends the fastest one.
 
 - Benchmarks PyPI and npm mirrors defined in `data/pypi.json` and `data/npm.json`
 - Measures real-world speed by actually downloading a sample package from
-  each mirror in parallel (never installing it) and deleting it immediately afterward
+  each mirror (never installing it) and deleting it immediately afterward
 - Interactive keyboard-only TUI built with `ratatui`
 - One-off CLI benchmarks (`run pypi`, `run npm`)
 - JSON report generation

@@ -35,7 +35,7 @@ which mirrors to test and which package to actually download from them.
 
 ## Benchmark Process
 
-Benchmarking downloads a real package file from each mirror concurrently (never
+Benchmarking downloads a real package file from each mirror (never
 installing it) so latency reflects an actual `pip install` / `npm install`
 workflow rather than a bare HTTP ping.
 
