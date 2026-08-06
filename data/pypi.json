@@ -3,6 +3,7 @@
   "mirrors": [
     "https://pypi.org/simple/",
     "https://pypi.devneeds.ir/simple/",
-    "https://package-mirror.liara.ir/repository/pypi/"
+    "https://package-mirror.liara.ir/repository/pypi/",
+    "https://mirror2.chabokan.net/pypi/simple/"
   ]
 }

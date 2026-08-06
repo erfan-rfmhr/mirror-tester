@@ -7,13 +7,11 @@ mod report;
 mod scheduler;
 mod ui;
 
-use app::App;
+use app::{App, Mode};
 use benchmark::benchmark_all;
 use clap::{Parser, Subcommand};
 use crossterm::{
-    event::{self, Event, KeyCode},
-    execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    event::{self, Event, KeyCode, KeyEventKind}, execute, terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use mirror::{load_mirrors, PackageManager};
 use ratatui::{backend::CrosstermBackend, Terminal};
@@ -152,15 +150,35 @@ async fn run_app_loop(
 
         if event::poll(Duration::from_millis(200))? {
             if let Event::Key(key) = event::read()? {
-                match key.code {
-                    KeyCode::Char('q') => app.should_quit = true,
-                    KeyCode::Up | KeyCode::Down => app.selection = app.selection.toggle(),
-                    KeyCode::Enter => {
-                        app.start_benchmark();
-                        terminal.draw(|f| ui::draw(f, app))?;
-                        app.run_benchmark().await;
+                if key.kind != KeyEventKind::Press {
+                    continue;
+                }
+                if app.mode == Mode::Input {
+                    match key.code {
+                        KeyCode::Char(c) => app.input_char(c),
+                        KeyCode::Esc => app.cancel_input(),
+                        KeyCode::Enter => {
+                            app.submit_input().ok();
+                        }
+                        KeyCode::Backspace => app.backspace(),
+                        KeyCode::Left => app.move_left(),
+                        KeyCode::Right => app.move_right(),
+                        KeyCode::Home => app.move_home(),
+                        KeyCode::End => app.move_end(),
+                        _ => {}
                     }
-                    _ => {}
+                } else {
+                    match key.code {
+                        KeyCode::Char('q') => app.should_quit = true,
+                        KeyCode::Up | KeyCode::Down => app.selection = app.selection.toggle(),
+                        KeyCode::Enter => {
+                            app.start_benchmark();
+                            terminal.draw(|f| ui::draw(f, app))?;
+                            app.run_benchmark().await;
+                        }
+                        KeyCode::Char('a') => app.enter_input(),
+                        _ => {}
+                    }
                 }
             }
         }

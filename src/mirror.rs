@@ -92,3 +92,13 @@ pub fn load_mirrors_from(path: &Path) -> Result<MirrorConfig, MirrorError> {
     let config: MirrorConfig = serde_json::from_str(&content)?;
     Ok(config)
 }
+
+/// Appends a mirror URL to the given package manager's mirror list and
+/// persists the updated configuration back to its data file.
+pub fn add_mirror(pm: PackageManager, mirror: &str) -> Result<(), MirrorError> {
+    let mut config = load_mirrors(pm)?;
+    config.mirrors.push(mirror.to_string());
+    let content = serde_json::to_string_pretty(&config)?;
+    fs::write(pm.data_file(), content)?;
+    Ok(())
+}

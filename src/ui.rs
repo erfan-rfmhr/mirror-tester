@@ -1,6 +1,6 @@
 //! Terminal UI rendering.
 
-use crate::app::{App, Selection};
+use crate::app::{App, Mode, Selection};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
@@ -28,7 +28,12 @@ pub fn draw(frame: &mut Frame, app: &App) {
     draw_menu(frame, chunks[1], app);
     draw_results(frame, chunks[2], app);
     draw_fastest(frame, chunks[3], app);
-    draw_status(frame, chunks[4], app);
+
+    if app.mode == Mode::Input {
+        draw_input(frame, chunks[4], app);
+    } else {
+        draw_status(frame, chunks[4], app);
+    }
 }
 
 fn draw_title(frame: &mut Frame, area: Rect) {
@@ -139,9 +144,22 @@ fn draw_fastest(frame: &mut Frame, area: Rect, app: &App) {
 
 fn draw_status(frame: &mut Frame, area: Rect, app: &App) {
     let help = format!(
-        "{}   [q] Quit   [Enter] Run Benchmark   [up/down] Switch",
+        "{}   [q] Quit   [Enter] Run Benchmark   [up/down] Switch   [a] Add Mirror",
         app.status
     );
     let widget = Paragraph::new(help).block(Block::default().borders(Borders::ALL));
     frame.render_widget(widget, area);
+}
+
+fn draw_input(frame: &mut Frame, area: Rect, app: &App) {
+    let widget = Paragraph::new(app.input.as_str())
+        .style(Style::default().fg(Color::Cyan))
+        .block(
+            Block::default()
+                .title("Add Mirror URL  [Enter] Save  [Esc] Cancel")
+                .borders(Borders::ALL),
+        );
+    frame.render_widget(widget, area);
+
+    frame.set_cursor_position((area.x + 1 + app.cursor as u16, area.y + 1));
 }
