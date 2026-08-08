@@ -3,6 +3,7 @@
 mod app;
 mod benchmark;
 mod mirror;
+mod pip;
 mod report;
 mod scheduler;
 mod ui;
@@ -40,6 +41,21 @@ enum Commands {
     Report,
     /// Continuously benchmark and save reports every hour.
     Schedule,
+    /// Install Python packages via PyPI mirrors, falling back to the next mirror on failure.
+    Pip {
+        #[command(subcommand)]
+        command: PipCommand,
+    },
+}
+
+#[derive(Subcommand)]
+enum PipCommand {
+    /// Install a package or a -r requirements file.
+    Install {
+        /// pip install arguments: package names, `-r FILE`, options.
+        #[arg(trailing_var_arg = true)]
+        args: Vec<String>,
+    },
 }
 
 #[tokio::main]
@@ -54,6 +70,7 @@ async fn main() {
             scheduler::run().await;
             Ok(())
         }
+        Commands::Pip { command: PipCommand::Install { args } } => pip::install(&args).await,
     };
 
     if let Err(e) = result {
