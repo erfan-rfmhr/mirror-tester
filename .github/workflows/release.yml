@@ -2,7 +2,7 @@ name: Release
 
 on:
   release:
-    types: [published]
+    types: [published, prereleased, released]
 
 permissions:
   contents: write
@@ -24,5 +24,5 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         files: |
-          ${{ matrix.os == 'windows-latest' && 'target/release/mirror-benchmark.exe' || 'target/release/mirror-benchmark' }}
+          ${{ matrix.os == 'windows-latest' && 'target/release/mirror.exe' || 'target/release/mirror' }}
         fail_on_unmatched_files: true
