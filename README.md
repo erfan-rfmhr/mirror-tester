@@ -1,34 +1,24 @@
-# Mirror Benchmark
+# Mirror CLI
 
-A terminal tool that benchmarks package registry mirrors (PyPI and npm)
-and recommends the fastest one.
+A terminal tool that benchmarks package registry mirrors, install packages from mirrors, reporting, all with both simple TUI and CLI.
 
 ## Features
 
-- Benchmarks PyPI and npm mirrors defined in `data/pypi.json` and `data/npm.json`
-- Measures real-world speed by actually downloading a sample package from
-  each mirror (never installing it) and deleting it immediately afterward
+- Benchmarks mirrors and ranks them by dowload speed
+- Install packages from mirrors
+- Switch to a different mirror if fails
 - Interactive keyboard-only TUI built with `ratatui`
-- One-off CLI benchmarks (`run pypi`, `run npm`)
-- JSON report generation
-- Simple hourly scheduler
-- Never crashes on an unreachable mirror — failed mirrors are marked as timeouts
-
-## Requirements
-
-- Rust (stable), installed via [rustup](https://rustup.rs)
-- Internet access to reach the mirrors listed in `data/`
 
 ## Installation
 
+Pickup desired binary from the [releases](https://github.com/erfan-rfmhr/mirror-tester/releases)
+Or build from source:
+
+- Make sure you have Rust (stable) installed via [rustup](https://rustup.rs)
+
 ```bash
-git clone <this-repo>
+git clone <https://github.com/erfan-rfmhr/mirror-tester>
 cd mirror-tester
-```
-
-## Build
-
-```bash
 make
 # or
 cargo build
