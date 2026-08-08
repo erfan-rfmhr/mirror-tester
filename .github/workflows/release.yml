@@ -1,0 +1,28 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Build release
+      run: cargo build --release --locked
+
+    - name: Upload binary to release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          ${{ matrix.os == 'windows-latest' && 'target/release/mirror-benchmark.exe' || 'target/release/mirror-benchmark' }}
+        fail_on_unmatched_files: true
