@@ -7,7 +7,7 @@ release:
 	cargo build --release
 
 run:
-	cargo run -- tui
+	cargo run
 
 benchmark-pypi:
 	cargo run -- run pypi

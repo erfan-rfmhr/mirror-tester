@@ -25,7 +25,7 @@ use std::time::Duration;
 #[command(name = "mirror-benchmark", version, about)]
 struct Cli {
     #[command(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
 }
 
 #[derive(Subcommand)]
@@ -35,8 +35,6 @@ enum Commands {
         /// Which package manager to benchmark: "pypi" or "npm".
         package_manager: String,
     },
-    /// Launch the interactive terminal UI.
-    Tui,
     /// Run benchmarks for pypi and npm and write a JSON report to reports/.
     Report,
     /// Continuously benchmark and save reports every hour.
@@ -63,14 +61,16 @@ async fn main() {
     let cli = Cli::parse();
 
     let result = match cli.command {
-        Commands::Run { package_manager } => run_once(&package_manager).await,
-        Commands::Tui => run_tui().await,
-        Commands::Report => run_report().await,
-        Commands::Schedule => {
+        Some(Commands::Run { package_manager }) => run_once(&package_manager).await,
+        Some(Commands::Report) => run_report().await,
+        Some(Commands::Schedule) => {
             scheduler::run().await;
             Ok(())
         }
-        Commands::Pip { command: PipCommand::Install { args } } => pip::install(&args).await,
+        Some(Commands::Pip { command: PipCommand::Install { args } }) => {
+            pip::install(&args).await
+        }
+        None => run_tui().await,
     };
 
     if let Err(e) = result {
