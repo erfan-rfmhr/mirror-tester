@@ -91,7 +91,7 @@ fn draw_results(frame: &mut Frame, area: Rect, app: &App) {
     ])
     .style(Style::default().add_modifier(Modifier::BOLD));
 
-    let rows: Vec<Row> = app
+    let mut rows: Vec<Row> = app
         .results
         .iter()
         .map(|r| {
@@ -116,6 +116,25 @@ fn draw_results(frame: &mut Frame, area: Rect, app: &App) {
             .style(style)
         })
         .collect();
+
+    if app.running {
+        if let Some(config) = &app.config {
+            if app.benchmark_index < config.mirrors.len() {
+                let pending = &config.mirrors[app.benchmark_index];
+                let testing_style = Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD);
+                rows.push(
+                    Row::new(vec![
+                        Cell::from(format!("(testing {})", pending)),
+                        Cell::from(""),
+                        Cell::from(""),
+                    ])
+                    .style(testing_style),
+                );
+            }
+        }
+    }
 
     let widths = [
         Constraint::Percentage(60),

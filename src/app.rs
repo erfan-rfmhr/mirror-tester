@@ -1,7 +1,7 @@
 //! Application state for the TUI.
 
-use crate::benchmark::{benchmark_all, BenchmarkResult};
-use crate::mirror::{add_mirror, load_mirrors, PackageManager};
+use crate::benchmark::{benchmark_mirror, BenchmarkResult};
+use crate::mirror::{add_mirror, load_mirrors, MirrorConfig, PackageManager};
 
 /// Which package manager is currently selected in the menu.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -47,6 +47,8 @@ pub struct App {
     pub mode: Mode,
     pub input: String,
     pub cursor: usize,
+    pub config: Option<MirrorConfig>,
+    pub benchmark_index: usize,
 }
 
 impl App {
@@ -57,11 +59,13 @@ impl App {
             results: Vec::new(),
             status: "Press [Enter] to run a benchmark, [up/down] to switch package manager."
                 .to_string(),
-            running: false,
-            should_quit: false,
-            mode: Mode::Normal,
-            input: String::new(),
-            cursor: 0,
+        running: false,
+        should_quit: false,
+        mode: Mode::Normal,
+        input: String::new(),
+        cursor: 0,
+        config: None,
+        benchmark_index: 0,
         }
     }
 
@@ -143,34 +147,72 @@ impl App {
             .map(|r| r.name.as_str())
     }
 
-    /// Marks a benchmark run as starting and sets the status message.
-    ///
-    /// Call this and render a frame *before* calling [`App::run_benchmark`],
-    /// otherwise the "Benchmarking..." status will never be drawn since
-    /// `run_benchmark` immediately awaits the (potentially slow) benchmark
-    /// work without yielding back to the render loop.
+    /// Marks a benchmark run as starting, loads mirror config, sets status.
+    /// Call this and render a frame *before* calling [`App::benchmark_step`].
     pub fn start_benchmark(&mut self) {
         self.running = true;
+        self.results.clear();
+        self.benchmark_index = 0;
         let pm = self.selection.to_package_manager();
-        self.status = format!("Benchmarking {}...", pm.name());
-    }
-
-    /// Runs a benchmark for the currently selected package manager and
-    /// stores the results in the app state.
-    pub async fn run_benchmark(&mut self) {
-        let pm = self.selection.to_package_manager();
-
         match load_mirrors(pm) {
             Ok(config) => {
-                self.results = benchmark_all(pm, &config.package, &config.mirrors).await;
-                self.status = "Benchmark complete.".to_string();
+                self.config = Some(config);
+                self.status = "Benchmarking...".to_string();
             }
             Err(e) => {
                 self.status = format!("Failed to load mirrors: {e}");
+                self.running = false;
+                self.config = None;
             }
         }
+    }
 
-        self.running = false;
+    /// Benchmarks the next pending mirror. Returns `true` when all mirrors
+    /// have been benchmarked (or no config loaded). Call repeatedly with a
+    /// redraw between each call for live progress.
+    pub async fn benchmark_step(&mut self) -> bool {
+        let config = match &self.config {
+            Some(c) => c.clone(),
+            None => return true,
+        };
+
+        if self.benchmark_index >= config.mirrors.len() {
+            self.running = false;
+            self.config = None;
+            self.benchmark_index = 0;
+            self.results.sort_by(|a, b| match (a.timed_out, b.timed_out) {
+                (true, true) => std::cmp::Ordering::Equal,
+                (true, false) => std::cmp::Ordering::Greater,
+                (false, true) => std::cmp::Ordering::Less,
+                (false, false) => a.average_latency_ms.cmp(&b.average_latency_ms),
+            });
+            self.status = "Benchmark complete.".to_string();
+            return true;
+        }
+
+        let pm = self.selection.to_package_manager();
+        let mirror = &config.mirrors[self.benchmark_index];
+        self.status = format!("Testing {}...", mirror);
+
+        let result = benchmark_mirror(pm, &config.package, mirror).await;
+        self.results.push(result);
+        self.benchmark_index += 1;
+
+        if self.benchmark_index >= config.mirrors.len() {
+            self.running = false;
+            self.config = None;
+            self.benchmark_index = 0;
+            self.results.sort_by(|a, b| match (a.timed_out, b.timed_out) {
+                (true, true) => std::cmp::Ordering::Equal,
+                (true, false) => std::cmp::Ordering::Greater,
+                (false, true) => std::cmp::Ordering::Less,
+                (false, false) => a.average_latency_ms.cmp(&b.average_latency_ms),
+            });
+            self.status = "Benchmark complete.".to_string();
+            return true;
+        }
+
+        false
     }
 }
 

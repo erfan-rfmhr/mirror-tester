@@ -165,6 +165,11 @@ async fn run_app_loop(
             break;
         }
 
+        if app.running {
+            app.benchmark_step().await;
+            continue;
+        }
+
         if event::poll(Duration::from_millis(200))? {
             if let Event::Key(key) = event::read()? {
                 if key.kind != KeyEventKind::Press {
@@ -190,8 +195,6 @@ async fn run_app_loop(
                         KeyCode::Up | KeyCode::Down => app.selection = app.selection.toggle(),
                         KeyCode::Enter => {
                             app.start_benchmark();
-                            terminal.draw(|f| ui::draw(f, app))?;
-                            app.run_benchmark().await;
                         }
                         KeyCode::Char('a') => app.enter_input(),
                         _ => {}
