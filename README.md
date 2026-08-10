@@ -5,8 +5,7 @@ A terminal tool that benchmarks package registry mirrors, install packages from 
 ## Features
 
 - Benchmarks mirrors and ranks them by dowload speed
-- Install packages from mirrors
-- Switch to a different mirror if fails
+- Install packages from mirrors. Switch to a different mirror if fails.
 - Interactive keyboard-only TUI built with `ratatui`
 
 ## Installation
@@ -24,31 +23,42 @@ make
 cargo build
 ```
 
-## Run
+## Usage
 
 Launch the TUI:
 
 ```bash
-make run
+mirror
+```
+
+Install python packages from mirrors:
+
+```bash
+mirror pip install <package>
+```
+or install from requirements file:
+
+```bash
+mirror pip install -r requirements.txt
 ```
 
 Run a one-off benchmark from the command line:
 
 ```bash
-cargo run -- run pypi
-cargo run -- run npm
+mirror run pypi
+mirror run npm
 ```
 
 Generate a JSON report for both package managers:
 
 ```bash
-cargo run -- report
+mirror report
 ```
 
 Run the hourly scheduler (keeps benchmarking forever):
 
 ```bash
-cargo run -- schedule
+mirror schedule
 ```
 
 ## Example TUI
