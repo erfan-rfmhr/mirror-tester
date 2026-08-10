@@ -25,6 +25,13 @@ cargo build
 
 ## Usage
 
+Get help:
+
+```bash
+mirror COMMAND help
+mirror pip help
+```
+
 Launch the TUI:
 
 ```bash
