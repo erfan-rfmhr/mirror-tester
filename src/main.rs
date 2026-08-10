@@ -51,7 +51,7 @@ enum PipCommand {
     /// Install a package or a -r requirements file.
     Install {
         /// pip install arguments: package names, `-r FILE`, options.
-        #[arg(trailing_var_arg = true)]
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
 }

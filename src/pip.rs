@@ -9,12 +9,13 @@ use tokio::process::Command;
 /// the terminal; a failed mirror falls through to the next one.
 pub async fn install(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     let config = load_mirrors(PackageManager::PyPi)?;
+    let interpreter = resolve_interpreter().await?;
 
     let mut last_status = String::from("no mirrors configured");
     for mirror in &config.mirrors {
         println!("Installing via {mirror}...");
 
-        let status = Command::new("python")
+        let status = Command::new(interpreter)
             .arg("-m")
             .arg("pip")
             .args(["install", "--index-url"])
@@ -37,4 +38,16 @@ pub async fn install(args: &[String]) -> Result<(), Box<dyn std::error::Error>> 
     }
 
     Err(format!("All mirrors failed, last error: {last_status}").into())
+}
+
+/// Resolves the Python interpreter to use: `python` if present, else
+/// `python3`. Errors out if neither exists.
+async fn resolve_interpreter() -> Result<&'static str, Box<dyn std::error::Error>> {
+    if Command::new("python").arg("--version").output().await.is_ok() {
+        return Ok("python");
+    }
+    if Command::new("python3").arg("--version").output().await.is_ok() {
+        return Ok("python3");
+    }
+    Err("Neither 'python' nor 'python3' found on PATH; install Python to use pip install.".into())
 }
