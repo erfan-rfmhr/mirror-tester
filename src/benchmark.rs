@@ -127,9 +127,9 @@ async fn download_and_discard_package(
     let file_name = download_url
         .rsplit('/')
         .find(|segment| !segment.is_empty())
-        .unwrap_or("mirror-benchmark-download.tmp");
+        .unwrap_or("mirror-download.tmp");
     let path = std::env::temp_dir().join(format!(
-        "mirror-benchmark-{}-{}",
+        "mirror-{}-{}",
         std::process::id(),
         file_name
     ));

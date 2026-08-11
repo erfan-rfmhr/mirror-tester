@@ -22,7 +22,7 @@ use std::time::Duration;
 
 /// Mirror Benchmark: benchmark package registry mirrors and find the fastest one.
 #[derive(Parser)]
-#[command(name = "mirror-benchmark", version, about)]
+#[command(name = "mirror", version, about)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
