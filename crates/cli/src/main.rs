@@ -1,28 +1,14 @@
 //! Mirror Benchmark CLI entry point.
 
-mod app;
-mod benchmark;
-mod mirror;
-mod pip;
-mod report;
-mod scheduler;
-mod ui;
-
-use app::{App, Mode};
-use benchmark::benchmark_all;
 use clap::{Parser, Subcommand};
-use crossterm::{
-    event::{self, Event, KeyCode, KeyEventKind}, execute, terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
-};
-use mirror::{load_mirrors, PackageManager};
-use ratatui::{backend::CrosstermBackend, Terminal};
-use report::Report;
-use std::io;
-use std::time::Duration;
+use mirror_core::benchmark::{benchmark_all, BenchmarkResult};
+use mirror_core::mirror::{load_mirrors, PackageManager};
+use mirror_core::report::Report;
+use mirror_core::{pip, scheduler};
 
 /// Mirror Benchmark: benchmark package registry mirrors and find the fastest one.
 #[derive(Parser)]
-#[command(name = "mirror", version, about)]
+#[command(name = "mirror-cli", version, about)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
@@ -70,7 +56,10 @@ async fn main() {
         Some(Commands::Pip { command: PipCommand::Install { args } }) => {
             pip::install(&args).await
         }
-        None => run_tui().await,
+        None => {
+            eprintln!("No command provided. Run with --help for usage.");
+            std::process::exit(2);
+        }
     };
 
     if let Err(e) = result {
@@ -100,7 +89,7 @@ async fn run_once(name: &str) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Prints benchmark results as a simple table to stdout.
-fn print_results(results: &[benchmark::BenchmarkResult]) {
+fn print_results(results: &[BenchmarkResult]) {
     println!("{:<40} {:>10} {:>10}", "Mirror", "Avg(ms)", "Success");
     for r in results {
         let latency = if r.timed_out {
@@ -130,78 +119,6 @@ async fn run_report() -> Result<(), Box<dyn std::error::Error>> {
         let path = report.save()?;
 
         println!("Report saved to {}", path.display());
-    }
-
-    Ok(())
-}
-
-/// Launches the interactive terminal UI and runs its event loop.
-async fn run_tui() -> Result<(), Box<dyn std::error::Error>> {
-    enable_raw_mode()?;
-    let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen)?;
-
-    let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
-
-    let mut app = App::new();
-    let res = run_app_loop(&mut terminal, &mut app).await;
-
-    disable_raw_mode()?;
-    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
-
-    res
-}
-
-/// The main TUI event loop: draws the UI and handles keyboard input.
-async fn run_app_loop(
-    terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
-    app: &mut App,
-) -> Result<(), Box<dyn std::error::Error>> {
-    loop {
-        terminal.draw(|f| ui::draw(f, app))?;
-
-        if app.should_quit {
-            break;
-        }
-
-        if app.running {
-            app.benchmark_step().await;
-            continue;
-        }
-
-        if event::poll(Duration::from_millis(200))? {
-            if let Event::Key(key) = event::read()? {
-                if key.kind != KeyEventKind::Press {
-                    continue;
-                }
-                if app.mode == Mode::Input {
-                    match key.code {
-                        KeyCode::Char(c) => app.input_char(c),
-                        KeyCode::Esc => app.cancel_input(),
-                        KeyCode::Enter => {
-                            app.submit_input().ok();
-                        }
-                        KeyCode::Backspace => app.backspace(),
-                        KeyCode::Left => app.move_left(),
-                        KeyCode::Right => app.move_right(),
-                        KeyCode::Home => app.move_home(),
-                        KeyCode::End => app.move_end(),
-                        _ => {}
-                    }
-                } else {
-                    match key.code {
-                        KeyCode::Char('q') => app.should_quit = true,
-                        KeyCode::Up | KeyCode::Down => app.selection = app.selection.toggle(),
-                        KeyCode::Enter => {
-                            app.start_benchmark();
-                        }
-                        KeyCode::Char('a') => app.enter_input(),
-                        _ => {}
-                    }
-                }
-            }
-        }
     }
 
     Ok(())

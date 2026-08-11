@@ -1,16 +1,68 @@
 # Architecture
 
+## Workspace Layout
+
+The project is a Cargo workspace with three crates:
+
+| Crate         | Binary        | Responsibility                                                   |
+|---------------|---------------|------------------------------------------------------------------|
+| `mirror-core` | (library)     | Shared application/domain logic (benchmarking, mirrors, reports, scheduler, pip) |
+| `mirror-cli`  | `mirror-cli`  | Non-interactive CLI built on `clap` + `mirror-core`              |
+| `mirror-tui`  | `mirror-tui`  | Interactive Ratatui application built on `ratatui` + `crossterm` + `mirror-core` |
+
+```text
+                  ┌──────────────────┐
+                  │   mirror-core    │
+                  │                  │
+                  │ benchmark logic  │
+                  │ mirror logic     │
+                  │ scheduler        │
+                  │ reports          │
+                  │ application state│
+                  └────────┬─────────┘
+                           │
+                 ┌─────────┴─────────┐
+                 │                   │
+        ┌────────▼────────┐  ┌───────▼────────┐
+        │   mirror-cli    │  │   mirror-tui   │
+        │                 │  │                │
+        │ clap            │  │ ratatui        │
+        │ stdout          │  │ crossterm      │
+        │ exit codes      │  │ event handling │
+        └─────────────────┘  └────────────────┘
+```
+
+## Dependency Rules
+
+* `mirror-core` MUST NOT depend on `ratatui` or `crossterm`.
+* `mirror-cli` MUST NOT depend on `ratatui` or `crossterm`.
+* `mirror-tui` depends on `mirror-core`, `ratatui`, and `crossterm`.
+
 ## Modules
+
+### `mirror-core` (library)
 
 | Module          | Responsibility                                              |
 |------------------|--------------------------------------------------------------|
-| `main.rs`        | CLI parsing (`clap`) and dispatch to subcommands             |
-| `app.rs`         | TUI application state (selection, results, status)           |
-| `ui.rs`          | Renders the TUI with `ratatui`                                |
+| `app.rs`         | Core application state (selection, results, benchmark loop)  |
 | `benchmark.rs`   | Downloads a real package from each mirror and measures latency |
 | `mirror.rs`      | Loads the sample package name + mirror URL list from `data/*.json` |
+| `pip.rs`         | Installs pip packages via configured mirrors with fallback  |
 | `report.rs`      | Builds and saves JSON reports to `reports/`                   |
 | `scheduler.rs`   | Infinite benchmark/report/sleep loop                          |
+
+### `mirror-cli` (binary)
+
+| Module          | Responsibility                                              |
+|------------------|--------------------------------------------------------------|
+| `main.rs`        | CLI parsing (`clap`) and dispatch to `mirror-core` commands  |
+
+### `mirror-tui` (binary)
+
+| Module          | Responsibility                                              |
+|------------------|--------------------------------------------------------------|
+| `main.rs`        | Terminal setup/cleanup, event loop, wraps `mirror-core::App` |
+| `ui.rs`          | Renders the TUI with `ratatui`                                |
 
 ## Data Flow
 
@@ -19,12 +71,12 @@ flowchart TD
     A[data/pypi.json or data/npm.json] --> B[mirror.rs: load_mirrors]
     B --> C[benchmark.rs: benchmark_all]
     C --> J[Download + delete package per mirror]
-    J --> D{Which command?}
-    D -->|run| E[Print table to stdout]
-    D -->|tui| F[app.rs state]
+    J --> D{Which frontend?}
+    D -->|mirror-cli run| E[Print table to stdout]
+    D -->|mirror-cli report| H[report.rs: Report::save]
+    D -->|mirror-cli schedule| I[scheduler.rs loop]
+    D -->|mirror-tui| F[core::App state]
     F --> G[ui.rs: draw]
-    D -->|report| H[report.rs: Report::save]
-    D -->|schedule| I[scheduler.rs loop]
     I --> C
     I --> H
 ```
@@ -32,6 +84,22 @@ flowchart TD
 `load_mirrors` returns a `MirrorConfig { package, mirrors }` loaded from
 the package manager's JSON file, so every downstream consumer knows both
 which mirrors to test and which package to actually download from them.
+
+The CLI and TUI both call into the same `mirror-core` operations; they
+differ only in how they present results to the user.
+
+## Data Files
+
+Mirror lists live in `data/pypi.json` and `data/npm.json`. The
+`mirror-core::mirror` module resolves these paths by:
+
+1. Checking the `MIRROR_DATA_DIR` environment variable.
+2. Walking up from the current executable looking for a `data/` directory
+   containing both `pypi.json` and `npm.json`.
+3. Walking up from the current working directory as a fallback.
+
+Reports are written under `reports/`, resolved the same way (with the
+`MIRROR_REPORTS_DIR` environment variable as an override).
 
 ## Benchmark Process
 

@@ -53,10 +53,11 @@ impl Report {
     /// creating the `reports/` directory if needed. Returns the path
     /// the report was written to.
     pub fn save(&self) -> io::Result<PathBuf> {
-        fs::create_dir_all("reports")?;
+        let reports_dir = reports_dir();
+        fs::create_dir_all(&reports_dir)?;
 
         let filename = format!("{}.json", Local::now().format("%Y-%m-%d_%H-%M"));
-        let path = PathBuf::from("reports").join(filename);
+        let path = reports_dir.join(filename);
 
         let json = serde_json::to_string_pretty(self)
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
@@ -64,5 +65,48 @@ impl Report {
         fs::write(&path, json)?;
 
         Ok(path)
+    }
+}
+
+/// Returns the path to the `reports/` directory. Uses `MIRROR_REPORTS_DIR`
+/// if set, otherwise falls back to a `reports/` directory found by walking
+/// up from the executable (matching how data files are resolved).
+fn reports_dir() -> PathBuf {
+    if let Ok(custom) = std::env::var("MIRROR_REPORTS_DIR") {
+        return PathBuf::from(custom);
+    }
+
+    if let Some(dir) = find_reports_dir_from_exe() {
+        return dir;
+    }
+
+    if let Some(dir) = find_reports_dir_from_cwd() {
+        return dir;
+    }
+
+    PathBuf::from("reports")
+}
+
+fn find_reports_dir_from_exe() -> Option<PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    let mut dir = exe.parent()?;
+    loop {
+        let candidate = dir.join("reports");
+        if dir.join("data").join("pypi.json").is_file() {
+            return Some(candidate);
+        }
+        dir = dir.parent()?;
+    }
+}
+
+fn find_reports_dir_from_cwd() -> Option<PathBuf> {
+    let mut dir = std::env::current_dir().ok()?;
+    loop {
+        if dir.join("data").join("pypi.json").is_file() {
+            return Some(dir.join("reports"));
+        }
+        if !dir.pop() {
+            return None;
+        }
     }
 }

@@ -1,0 +1,14 @@
+[package]
+name = "mirror-tui"
+version = { workspace = true }
+edition = { workspace = true }
+
+[[bin]]
+name = "mirror-tui"
+path = "src/main.rs"
+
+[dependencies]
+mirror-core = { path = "../core" }
+ratatui = { workspace = true }
+crossterm = { workspace = true }
+tokio = { workspace = true }

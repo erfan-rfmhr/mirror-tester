@@ -1,6 +1,6 @@
 //! Terminal UI rendering.
 
-use crate::app::{App, Mode, Selection};
+use mirror_core::app::{Selection};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
@@ -8,6 +8,8 @@ use ratatui::{
     widgets::{Block, Borders, Cell, Paragraph, Row, Table},
     Frame,
 };
+
+use crate::App;
 
 /// Draws the entire application UI into the given frame.
 pub fn draw(frame: &mut Frame, app: &App) {
@@ -48,23 +50,23 @@ fn draw_menu(frame: &mut Frame, area: Rect, app: &App) {
         .fg(Color::Yellow)
         .add_modifier(Modifier::BOLD);
 
-    let pypi_prefix = if app.selection == Selection::PyPi {
+    let pypi_prefix = if app.core.selection == Selection::PyPi {
         "> "
     } else {
         "  "
     };
-    let npm_prefix = if app.selection == Selection::Npm {
+    let npm_prefix = if app.core.selection == Selection::Npm {
         "> "
     } else {
         "  "
     };
 
-    let pypi_style = if app.selection == Selection::PyPi {
+    let pypi_style = if app.core.selection == Selection::PyPi {
         selected_style
     } else {
         Style::default()
     };
-    let npm_style = if app.selection == Selection::Npm {
+    let npm_style = if app.core.selection == Selection::Npm {
         selected_style
     } else {
         Style::default()
@@ -92,6 +94,7 @@ fn draw_results(frame: &mut Frame, area: Rect, app: &App) {
     .style(Style::default().add_modifier(Modifier::BOLD));
 
     let mut rows: Vec<Row> = app
+        .core
         .results
         .iter()
         .map(|r| {
@@ -117,10 +120,10 @@ fn draw_results(frame: &mut Frame, area: Rect, app: &App) {
         })
         .collect();
 
-    if app.running {
-        if let Some(config) = &app.config {
-            if app.benchmark_index < config.mirrors.len() {
-                let pending = &config.mirrors[app.benchmark_index];
+    if app.core.running {
+        if let Some(config) = &app.core.config {
+            if app.core.benchmark_index < config.mirrors.len() {
+                let pending = &config.mirrors[app.core.benchmark_index];
                 let testing_style = Style::default()
                     .fg(Color::Yellow)
                     .add_modifier(Modifier::BOLD);
@@ -150,7 +153,7 @@ fn draw_results(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 fn draw_fastest(frame: &mut Frame, area: Rect, app: &App) {
-    let text = app.fastest().unwrap_or("N/A");
+    let text = app.core.fastest().unwrap_or("N/A");
     let widget = Paragraph::new(text)
         .style(Style::default().fg(Color::Cyan))
         .block(
@@ -181,4 +184,11 @@ fn draw_input(frame: &mut Frame, area: Rect, app: &App) {
     frame.render_widget(widget, area);
 
     frame.set_cursor_position((area.x + 1 + app.cursor as u16, area.y + 1));
+}
+
+// Local Mode enum (kept inside the TUI crate since it only affects UI state).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mode {
+    Normal,
+    Input,
 }

@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Errors that can occur while loading mirror lists.
 #[derive(Debug)]
@@ -51,12 +51,19 @@ impl PackageManager {
         }
     }
 
-    /// Returns the on-disk file path for this package manager's mirror list.
-    pub fn data_file(&self) -> &'static str {
+    /// Returns the relative file path for this package manager's mirror list
+    /// within the `data/` directory.
+    pub fn data_file_name(&self) -> &'static str {
         match self {
-            PackageManager::PyPi => "data/pypi.json",
-            PackageManager::Npm => "data/npm.json",
+            PackageManager::PyPi => "pypi.json",
+            PackageManager::Npm => "npm.json",
         }
+    }
+
+    /// Returns the on-disk file path for this package manager's mirror list,
+    /// resolved relative to the workspace root.
+    pub fn data_file(&self) -> PathBuf {
+        data_dir().join(self.data_file_name())
     }
 
     /// Returns the display name of the package manager.
@@ -80,10 +87,70 @@ pub struct MirrorConfig {
     pub mirrors: Vec<String>,
 }
 
+/// Returns the path to the `data/` directory, resolved relative to the
+/// workspace root.
+///
+/// Resolution order:
+/// 1. `MIRROR_DATA_DIR` environment variable (if set).
+/// 2. Walk up from the current executable looking for a `data/` directory
+///    containing both `pypi.json` and `npm.json`.
+/// 3. Walk up from the current working directory as a fallback.
+fn data_dir() -> PathBuf {
+    if let Ok(custom) = std::env::var("MIRROR_DATA_DIR") {
+        return PathBuf::from(custom);
+    }
+
+    if let Some(dir) = find_data_dir_from_exe() {
+        return dir;
+    }
+
+    if let Some(dir) = find_data_dir_from_cwd() {
+        return dir;
+    }
+
+    PathBuf::from("data")
+}
+
+/// Walks up from the current executable looking for a `data/` directory
+/// containing both expected data files.
+fn find_data_dir_from_exe() -> Option<PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    let mut dir = exe.parent()?;
+    loop {
+        let candidate = dir.join("data");
+        if is_data_dir(&candidate) {
+            return Some(candidate);
+        }
+        dir = dir.parent()?;
+    }
+}
+
+/// Walks up from the current working directory looking for a `data/`
+/// directory.
+fn find_data_dir_from_cwd() -> Option<PathBuf> {
+    let mut dir = std::env::current_dir().ok()?;
+    loop {
+        let candidate = dir.join("data");
+        if is_data_dir(&candidate) {
+            return Some(candidate);
+        }
+        if !dir.pop() {
+            return None;
+        }
+    }
+}
+
+/// Returns true if `path` looks like the project's `data/` directory
+/// (contains both expected mirror files).
+fn is_data_dir(path: &Path) -> bool {
+    path.join("pypi.json").is_file() && path.join("npm.json").is_file()
+}
+
 /// Loads the mirror configuration (sample package + mirror URLs) for the
 /// given package manager.
 pub fn load_mirrors(pm: PackageManager) -> Result<MirrorConfig, MirrorError> {
-    load_mirrors_from(Path::new(pm.data_file()))
+    let path = pm.data_file();
+    load_mirrors_from(&path)
 }
 
 /// Loads a mirror configuration from an arbitrary JSON file path.
@@ -96,9 +163,10 @@ pub fn load_mirrors_from(path: &Path) -> Result<MirrorConfig, MirrorError> {
 /// Appends a mirror URL to the given package manager's mirror list and
 /// persists the updated configuration back to its data file.
 pub fn add_mirror(pm: PackageManager, mirror: &str) -> Result<(), MirrorError> {
-    let mut config = load_mirrors(pm)?;
+    let path = pm.data_file();
+    let mut config = load_mirrors_from(&path)?;
     config.mirrors.push(mirror.to_string());
     let content = serde_json::to_string_pretty(&config)?;
-    fs::write(pm.data_file(), content)?;
+    fs::write(&path, content)?;
     Ok(())
 }

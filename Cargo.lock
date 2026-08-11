@@ -877,16 +877,32 @@ dependencies = [
 ]
 
 [[package]]
-name = "mirror"
+name = "mirror-cli"
+version = "0.2.5"
+dependencies = [
+ "clap",
+ "mirror-core",
+ "tokio",
+]
+
+[[package]]
+name = "mirror-core"
 version = "0.2.5"
 dependencies = [
  "chrono",
- "clap",
- "crossterm",
- "ratatui",
  "reqwest",
  "serde",
  "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "mirror-tui"
+version = "0.2.5"
+dependencies = [
+ "crossterm",
+ "mirror-core",
+ "ratatui",
  "tokio",
 ]
 

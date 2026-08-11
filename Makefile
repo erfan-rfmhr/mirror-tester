@@ -1,25 +1,28 @@
-.PHONY: build release run benchmark-pypi benchmark-npm report schedule clean
+.PHONY: build release run cli tui benchmark-pypi benchmark-npm report schedule clean
 
 build:
-	cargo build
+	cargo build --workspace
 
 release:
-	cargo build --release
+	cargo build --release --workspace
 
-run:
-	cargo run
+cli:
+	cargo run -p mirror-cli
+
+tui:
+	cargo run -p mirror-tui
 
 benchmark-pypi:
-	cargo run -- run pypi
+	cargo run -p mirror-cli -- run pypi
 
 benchmark-npm:
-	cargo run -- run npm
+	cargo run -p mirror-cli -- run npm
 
 report:
-	cargo run -- report
+	cargo run -p mirror-cli -- report
 
 schedule:
-	cargo run -- schedule
+	cargo run -p mirror-cli -- schedule
 
 clean:
 	cargo clean

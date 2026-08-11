@@ -25,47 +25,53 @@ cargo build
 
 ## Usage
 
+The project ships two binaries:
+
+* `mirror-cli` — non-interactive CLI, suitable for CI pipelines, Docker
+  images, and shell scripting.
+* `mirror-tui` — interactive Ratatui application.
+
 Get help:
 
 ```bash
-mirror COMMAND help
-mirror pip help
+mirror-cli --help
+mirror-cli pip --help
 ```
 
 Launch the TUI:
 
 ```bash
-mirror
+mirror-tui
 ```
 
 Install python packages from mirrors:
 
 ```bash
-mirror pip install <package>
+mirror-cli pip install <package>
 ```
 or install from requirements file:
 
 ```bash
-mirror pip install -r requirements.txt
+mirror-cli pip install -r requirements.txt
 ```
 
 Run a one-off benchmark from the command line:
 
 ```bash
-mirror run pypi
-mirror run npm
+mirror-cli run pypi
+mirror-cli run npm
 ```
 
 Generate a JSON report for both package managers:
 
 ```bash
-mirror report
+mirror-cli report
 ```
 
 Run the hourly scheduler (keeps benchmarking forever):
 
 ```bash
-mirror schedule
+mirror-cli schedule
 ```
 
 ## Example TUI

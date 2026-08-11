@@ -1,0 +1,13 @@
+[package]
+name = "mirror-cli"
+version = { workspace = true }
+edition = { workspace = true }
+
+[[bin]]
+name = "mirror-cli"
+path = "src/main.rs"
+
+[dependencies]
+mirror-core = { path = "../core" }
+clap = { workspace = true }
+tokio = { workspace = true }
