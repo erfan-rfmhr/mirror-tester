@@ -1,4 +1,4 @@
-.PHONY: build release run cli tui benchmark-pypi benchmark-npm report schedule clean
+.PHONY: build release run cli tui benchmark-pypi benchmark-npm benchmark-gradle report schedule clean
 
 build:
 	cargo build --workspace
@@ -17,6 +17,9 @@ benchmark-pypi:
 
 benchmark-npm:
 	cargo run -p ayeneh-cli -- run npm
+
+benchmark-gradle:
+	cargo run -p ayeneh-cli -- run gradle
 
 report:
 	cargo run -p ayeneh-cli -- report

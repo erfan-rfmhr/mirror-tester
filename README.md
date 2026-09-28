@@ -11,6 +11,7 @@ A terminal tool that installs packages from mirrors, benchmarks, and reports res
 |----------------|-----------------------|
 |PyPi|pip, uv|
 |npm |npm|
+|Gradle|gradle (Maven repositories)|
 
 
 ## Features
@@ -48,6 +49,7 @@ Get help:
 ayeneh-cli --help
 ayeneh-cli pip --help
 ayeneh-cli npm --help
+ayeneh-cli gradle --help
 ```
 
 ### Environment Variables
@@ -56,7 +58,7 @@ Runtime behavior can be tuned without rebuilding:
 
 | Variable                          | Meaning                                | Default                   |
 |-----------------------------------|----------------------------------------|---------------------------|
-| `AYN_DATA_DIR`                    | Directory holding `pypi.json`/`npm.json` | `./data` |
+| `AYN_DATA_DIR`                    | Directory holding the registry JSON files | `./data` |
 | `AYN_REPORTS_DIR`                 | Directory for generated reports        | auto-detected `reports/`  |
 | `AYN_TIMEOUT`                | Per-attempt HTTP timeout (seconds)     | `15`                      |
 | `AYN_ATTEMPTS`                    | Benchmark attempts per mirror          | `3`                       |
@@ -94,14 +96,30 @@ Install npm packages from mirrors:
 ayeneh-cli npm install <package>
 ```
 
+Download Gradle/Maven packages from mirrors:
+
+```bash
+ayeneh-cli gradle install com.google.guava:guava:34.0.0-jre
+```
+
+The version may be omitted, in which case the newest available one is resolved:
+
+```bash
+ayeneh-cli gradle install com.google.guava:guava
+```
+
+Gradle artifacts are downloaded into Gradle's own dependency cache, so a later
+build that uses the same coordinates resolves them without hitting the network.
+
 Run a one-off benchmark from the command line:
 
 ```bash
 ayeneh-cli run pypi
 ayeneh-cli run npm
+ayeneh-cli run gradle
 ```
 
-Generate a JSON report for both package managers:
+Generate a JSON report for all package managers:
 
 ```bash
 ayeneh-cli report
@@ -131,9 +149,9 @@ ayeneh-cli schedule
 
 ## Mirror Lists
 
-`pypi.json` and `npm.json` each define the sample `package` to download during
-benchmarking and the list of `mirrors` to test it against. By default, the
-program reads them from `./data`:
+`pypi.json`, `npm.json`, and `gradle.json` each define the sample `package` to
+download during benchmarking and the list of `mirrors` to test it against. By
+default, the program reads them from `./data`:
 
 ```json
 {
@@ -155,6 +173,11 @@ AYN_DATA_DIR=/opt/mirror/registries ayeneh-cli run pypi
 Edit these JSON files to add or remove mirrors, or to change the package used
 for benchmarking. Mirror lists are configured statically — no network
 scraping is performed to discover them.
+
+In `gradle.json` the `package` is a pair of Maven coordinates
+(`group:artifact`, e.g. `com.google.guava:guava`) and each mirror is a Maven
+repository root, so the same list can be used as a `maven { url ... }`
+repository in Gradle or Maven.
 
 ### Docker
 

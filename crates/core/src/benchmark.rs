@@ -148,6 +148,7 @@ async fn resolve_download_url(
     match registry {
         Registry::PyPi => resolve_pypi_download_url(client, package, mirror).await,
         Registry::Npm => resolve_npm_download_url(client, package, mirror).await,
+        Registry::Gradle => resolve_gradle_download_url(client, package, mirror).await,
     }
 }
 
@@ -201,6 +202,66 @@ async fn resolve_npm_download_url(
     Ok(tarball.to_string())
 }
 
+/// Resolves a Maven artifact's JAR URL by reading the repository's
+/// `maven-metadata.xml`, e.g.
+/// `https://repo1.maven.org/maven2/com/google/guava/guava/maven-metadata.xml`.
+/// `package` is a pair of Maven coordinates, `group:artifact`.
+async fn resolve_gradle_download_url(
+    client: &reqwest::Client,
+    package: &str,
+    mirror: &str,
+) -> Result<String, DownloadError> {
+    let (group, artifact) = package
+        .split_once(':')
+        .ok_or("invalid Maven coordinates, expected 'group:artifact'")?;
+
+    let path = gradle_artifact_path(group, artifact);
+    let metadata_url = format!("{}{path}/maven-metadata.xml", ensure_trailing_slash(mirror));
+
+    let body = client
+        .get(&metadata_url)
+        .send()
+        .await?
+        .error_for_status()?
+        .text()
+        .await?;
+
+    let version = extract_maven_version(&body).ok_or("no version found in maven-metadata.xml")?;
+
+    Ok(format!(
+        "{}{path}/{version}/{artifact}-{version}.jar",
+        ensure_trailing_slash(mirror)
+    ))
+}
+
+/// Maven repository path for a `group:artifact` pair, e.g.
+/// `com/google/guava/guava`. Used to build both the `maven-metadata.xml` URL
+/// and the artifact URL.
+fn gradle_artifact_path(group: &str, artifact: &str) -> String {
+    format!("{}/{}", group.replace('.', "/"), artifact)
+}
+
+/// Extracts the version to download from a `maven-metadata.xml` document:
+/// the `<release>` version when present, then `<latest>`, then the last
+/// listed `<version>`.
+fn extract_maven_version(metadata: &str) -> Option<String> {
+    extract_xml_tag(metadata, "release")
+        .or_else(|| extract_xml_tag(metadata, "latest"))
+        .or_else(|| extract_xml_tag(&metadata[metadata.rfind("<version>")?..], "version"))
+}
+
+/// Extracts the trimmed text of the first `<tag>...</tag>` element.
+fn extract_xml_tag(xml: &str, tag: &str) -> Option<String> {
+    let open = format!("<{tag}>");
+    let close = format!("</{tag}>");
+
+    let start = xml.find(&open)? + open.len();
+    let rest = &xml[start..];
+    let end = rest.find(&close)?;
+
+    Some(rest[..end].trim().to_string())
+}
+
 /// Ensures a mirror base URL ends with a trailing slash so it can be safely
 /// joined with a package name.
 fn ensure_trailing_slash(url: &str) -> String {
@@ -236,4 +297,65 @@ fn is_package_archive(href: &str) -> bool {
     [".whl", ".tar.gz", ".zip", ".egg"]
         .iter()
         .any(|ext| path.ends_with(ext))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ensure_trailing_slash, extract_maven_version, gradle_artifact_path};
+
+    const METADATA: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+<metadata>
+  <groupId>com.google.guava</groupId>
+  <artifactId>guava</artifactId>
+  <versioning>
+    <latest>34.0.0-jre</latest>
+    <release>34.0.0-jre</release>
+    <versions>
+      <version>33.4.8-jre</version>
+      <version>34.0.0-jre</version>
+    </versions>
+  </versioning>
+</metadata>
+"#;
+
+    #[test]
+    fn reads_release_version_from_maven_metadata() {
+        assert_eq!(
+            extract_maven_version(METADATA).as_deref(),
+            Some("34.0.0-jre")
+        );
+    }
+
+    #[test]
+    fn falls_back_to_last_listed_version() {
+        let metadata = METADATA
+            .replace("<latest>34.0.0-jre</latest>", "")
+            .replace("<release>34.0.0-jre</release>", "")
+            .replace(
+                "<version>34.0.0-jre</version>",
+                "<version>35.0.0-jre</version>",
+            );
+
+        assert_eq!(
+            extract_maven_version(&metadata).as_deref(),
+            Some("35.0.0-jre")
+        );
+    }
+
+    #[test]
+    fn gradle_path_uses_group_and_artifact_once() {
+        assert_eq!(
+            gradle_artifact_path("com.google.guava", "guava"),
+            "com/google/guava/guava"
+        );
+        assert_eq!(gradle_artifact_path("junit", "junit"), "junit/junit");
+    }
+
+    #[test]
+    fn ensure_trailing_slash_appends_when_missing() {
+        assert_eq!(
+            ensure_trailing_slash("https://repo1.maven.org/maven2"),
+            "https://repo1.maven.org/maven2/"
+        );
+    }
 }

@@ -6,8 +6,8 @@
 use std::env;
 
 /// Defaults used when no environment override is provided.
-pub const DEFAULT_TIMEOUT_SECS: u64 = 15;
-pub const DEFAULT_ATTEMPTS: u32 = 3;
+pub const DEFAULT_TIMEOUT_SECS: u64 = 10;
+pub const DEFAULT_ATTEMPTS: u32 = 1;
 pub const DEFAULT_SCHEDULE_INTERVAL_SECS: u64 = 60 * 60;
 
 /// Resolved runtime configuration for benchmarking and scheduling.

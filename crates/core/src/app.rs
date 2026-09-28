@@ -24,7 +24,7 @@ impl App {
     /// Creates a fresh application state, loading both registries from disk.
     pub fn new() -> Self {
         let mut data = HashMap::new();
-        for registry in [Registry::PyPi, Registry::Npm] {
+        for registry in Registry::ALL {
             if let Ok(registry_data) = load_registry_data(registry) {
                 data.insert(registry.name().to_string(), registry_data);
             }

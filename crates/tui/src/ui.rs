@@ -21,7 +21,7 @@ pub fn draw(frame: &mut Frame, app: &App) {
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(3), // title
-            Constraint::Length(4), // package manager menu
+            Constraint::Length(5), // package manager menu
             Constraint::Length(3), // status / help
             Constraint::Length(3), // fastest mirror
             Constraint::Min(6),    // results table
@@ -50,36 +50,22 @@ fn draw_title(frame: &mut Frame, area: Rect) {
 }
 
 fn draw_menu(frame: &mut Frame, area: Rect, app: &App) {
-    let selected_style = Style::default()
-        .fg(Color::Yellow)
-        .add_modifier(Modifier::BOLD);
+    let lines: Vec<Line> = Registry::ALL
+        .iter()
+        .map(|registry| {
+            let selected = *registry == app.core.selection;
+            let prefix = if selected { "> " } else { "  " };
+            let style = if selected {
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default()
+            };
 
-    let pypi_prefix = if app.core.selection == Registry::PyPi {
-        "> "
-    } else {
-        "  "
-    };
-    let npm_prefix = if app.core.selection == Registry::Npm {
-        "> "
-    } else {
-        "  "
-    };
-
-    let pypi_style = if app.core.selection == Registry::PyPi {
-        selected_style
-    } else {
-        Style::default()
-    };
-    let npm_style = if app.core.selection == Registry::Npm {
-        selected_style
-    } else {
-        Style::default()
-    };
-
-    let lines = vec![
-        Line::from(Span::styled(format!("{pypi_prefix}PyPI"), pypi_style)),
-        Line::from(Span::styled(format!("{npm_prefix}npm"), npm_style)),
-    ];
+            Line::from(Span::styled(format!("{prefix}{}", registry.label()), style))
+        })
+        .collect();
 
     let border_style = if app.active_section == ActiveSection::Registries {
         Style::default().fg(Color::Yellow)

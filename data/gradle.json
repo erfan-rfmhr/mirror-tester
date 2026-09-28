@@ -1,0 +1,8 @@
+{
+  "package": "com.google.guava:guava",
+  "mirrors": [
+    "https://en-mirror.ir/",
+    "https://maven.myket.ir/",
+    "https://mirrors.huaweicloud.com/repository/maven/"
+  ]
+}

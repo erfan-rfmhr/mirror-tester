@@ -17,7 +17,7 @@ use tokio::time::sleep;
 pub async fn run() {
     let cfg = Config::from_env();
     let interval = Duration::from_secs(cfg.schedule_interval_secs);
-    let registries = [Registry::PyPi, Registry::Npm];
+    let registries = Registry::ALL;
 
     loop {
         for &registry in &registries {

@@ -299,7 +299,7 @@ async fn run_app_loop(
                         }
                         KeyCode::Up | KeyCode::Down => match app.active_section {
                             ActiveSection::Registries => {
-                                app.core.selection = app.core.selection.toggle();
+                                app.core.selection = app.core.selection.next();
                                 app.selected_mirror = 0;
                             }
                             ActiveSection::Results => {

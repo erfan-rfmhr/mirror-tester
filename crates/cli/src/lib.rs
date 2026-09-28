@@ -4,7 +4,7 @@
 use ayeneh_core::benchmark::{benchmark_all, BenchmarkResult};
 use ayeneh_core::mirror::{load_mirrors, Registry};
 use ayeneh_core::report::Report;
-use ayeneh_core::{npm, pip, scheduler, uv};
+use ayeneh_core::{gradle, npm, pip, scheduler, uv};
 use clap::{Parser, Subcommand};
 
 /// Mirror Benchmark: benchmark package registry mirrors and find the fastest one.
@@ -17,12 +17,12 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    /// Run a one-off benchmark for a registry ("pypi" or "npm") and print results.
+    /// Run a one-off benchmark for a registry ("pypi", "npm", or "gradle") and print results.
     Run {
-        /// Which registry to benchmark: "pypi" or "npm".
+        /// Which registry to benchmark: "pypi", "npm", or "gradle".
         registry: String,
     },
-    /// Run benchmarks for pypi and npm and write a JSON report to reports/.
+    /// Run benchmarks for every registry and write a JSON report to reports/.
     Report,
     /// Continuously benchmark and save reports every hour.
     Schedule,
@@ -40,6 +40,11 @@ pub enum Commands {
     UV {
         #[command(subcommand)]
         command: UVCommand,
+    },
+    /// Download Gradle/Maven packages via Gradle mirrors, falling back to the next mirror on failure.
+    Gradle {
+        #[command(subcommand)]
+        command: GradleCommand,
     },
 }
 
@@ -73,11 +78,21 @@ pub enum UVCommand {
     },
 }
 
+#[derive(Subcommand)]
+pub enum GradleCommand {
+    /// Download Maven coordinates (group:artifact:version) into the Gradle cache.
+    Install {
+        /// Maven coordinates, e.g. `com.google.guava:guava:34.0.0-jre`. The version may be omitted.
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+}
+
 /// Runs a single benchmark for the given package manager name and prints
 /// the results to stdout.
 pub async fn run_once(name: &str) -> Result<(), Box<dyn std::error::Error>> {
     let registry = Registry::from_str(name)
-        .ok_or_else(|| format!("Unknown registry '{name}'. Use 'pypi' or 'npm'."))?;
+        .ok_or_else(|| format!("Unknown registry '{name}'. Use 'pypi', 'npm', or 'gradle'."))?;
 
     let config = load_mirrors(registry)?;
     println!(
@@ -113,9 +128,9 @@ pub fn print_results(results: &[BenchmarkResult]) {
     }
 }
 
-/// Runs benchmarks for both pypi and npm and saves a JSON report for each.
+/// Runs benchmarks for every registry and saves a JSON report for each.
 pub async fn run_report() -> Result<(), Box<dyn std::error::Error>> {
-    for registry in [Registry::PyPi, Registry::Npm] {
+    for registry in Registry::ALL {
         let config = load_mirrors(registry)?;
         println!("Benchmarking {}...", registry.name());
 
@@ -150,6 +165,9 @@ pub async fn run_command(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         Some(Commands::UV {
             command: UVCommand::Add { args },
         }) => uv::add(&args).await,
+        Some(Commands::Gradle {
+            command: GradleCommand::Install { args },
+        }) => gradle::install(&args).await,
         None => Ok(()),
     }
 }

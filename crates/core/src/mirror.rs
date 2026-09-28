@@ -39,24 +39,30 @@ impl From<serde_json::Error> for MirrorError {
 pub enum Registry {
     PyPi,
     Npm,
+    Gradle,
 }
 
 impl Registry {
+    /// Every supported registry, in display order.
+    pub const ALL: [Registry; 3] = [Registry::PyPi, Registry::Npm, Registry::Gradle];
+
     /// Parses a registry name from a string (case-insensitive).
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "pypi" | "pip" => Some(Registry::PyPi),
             "npm" => Some(Registry::Npm),
+            "gradle" | "maven" => Some(Registry::Gradle),
             _ => None,
         }
     }
 
-    /// Toggles between the two available registries.
-    pub fn toggle(self) -> Self {
-        match self {
-            Registry::PyPi => Registry::Npm,
-            Registry::Npm => Registry::PyPi,
-        }
+    /// Returns the next registry in [`Registry::ALL`], wrapping around.
+    pub fn next(self) -> Self {
+        let index = Self::ALL
+            .iter()
+            .position(|entry| *entry == self)
+            .unwrap_or(0);
+        Self::ALL[(index + 1) % Self::ALL.len()]
     }
 
     /// Returns the relative file path for this registry's mirror list
@@ -65,6 +71,7 @@ impl Registry {
         match self {
             Registry::PyPi => "pypi.json",
             Registry::Npm => "npm.json",
+            Registry::Gradle => "gradle.json",
         }
     }
 
@@ -80,18 +87,28 @@ impl Registry {
         match self {
             Registry::PyPi => "pypi",
             Registry::Npm => "npm",
+            Registry::Gradle => "gradle",
+        }
+    }
+
+    /// Human-readable registry name, used for display (e.g. the TUI menu).
+    pub fn label(&self) -> &'static str {
+        match self {
+            Registry::PyPi => "PyPI",
+            Registry::Npm => "npm",
+            Registry::Gradle => "Gradle",
         }
     }
 }
 
 /// A sample package to download during benchmarking, together with the
 /// list of mirror URLs to test it against. This is the on-disk shape of
-/// `pypi.json` / `npm.json`.
+/// `pypi.json` / `npm.json` / `gradle.json`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MirrorConfig {
     /// Name of the package that will actually be downloaded from each
     /// mirror when benchmarking (e.g. `"requests"` for PyPI, `"lodash"`
-    /// for npm).
+    /// for npm, `"com.google.guava:guava"` for Gradle).
     pub package: String,
     /// Mirror base URLs to benchmark.
     pub mirrors: Vec<String>,
