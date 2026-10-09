@@ -47,7 +47,8 @@ The project is a Cargo workspace with three crates:
 | `app.rs`         | Core application state (selection, results, benchmark loop)  |
 | `benchmark.rs`   | Downloads a real package from each mirror and measures latency |
 | `config.rs`      | Reads env-driven tuning (timeout, attempts, schedule interval) |
-| `gradle.rs`      | Downloads Gradle/Maven coordinates via configured mirrors with fallback |
+| `gradle.rs`      | Runs Gradle dependency tasks and coordinates via configured Maven mirrors with fallback |
+| `maven.rs`       | Runs Maven lifecycle/plugin goals via configured Maven mirrors with fallback |
 | `mirror.rs`      | Loads the sample package name + mirror URL list from the registry dir |
 | `npm.rs`         | Installs npm packages via configured mirrors with fallback  |
 | `pip.rs`         | Installs pip packages via configured mirrors with fallback  |
@@ -90,6 +91,14 @@ which mirrors to test and which package to actually download from them.
 
 The CLI and TUI both call into the same `ayeneh-core` operations; they
 differ only in how they present results to the user.
+
+Java dependency commands run in the current project directory. Gradle commands
+receive a temporary init script that replaces project, plugin, settings, and
+buildscript repositories with one configured mirror. Maven commands receive a
+temporary `settings.xml` with a `mirrorOf=*` entry. The temporary files are
+removed after each attempt; project build files are not modified. `sync` is an
+Ayeneh alias that resolves every Gradle/Maven configuration rather than an IDE
+operation.
 
 ## Data Files
 

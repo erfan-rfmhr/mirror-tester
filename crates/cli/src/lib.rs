@@ -4,7 +4,7 @@
 use ayeneh_core::benchmark::{benchmark_all, BenchmarkResult};
 use ayeneh_core::mirror::{load_mirrors, Registry};
 use ayeneh_core::report::Report;
-use ayeneh_core::{gradle, npm, pip, scheduler, uv};
+use ayeneh_core::{gradle, maven, npm, pip, scheduler, uv};
 use clap::{Parser, Subcommand};
 
 /// Mirror Benchmark: benchmark package registry mirrors and find the fastest one.
@@ -17,9 +17,9 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    /// Run a one-off benchmark for a registry ("pypi", "npm", or "gradle") and print results.
+    /// Run a one-off benchmark for a registry ("pypi", "npm", "gradle", or "maven") and print results.
     Run {
-        /// Which registry to benchmark: "pypi", "npm", or "gradle".
+        /// Which registry to benchmark: "pypi", "npm", "gradle", or "maven".
         registry: String,
     },
     /// Run benchmarks for every registry and write a JSON report to reports/.
@@ -41,10 +41,22 @@ pub enum Commands {
         #[command(subcommand)]
         command: UVCommand,
     },
-    /// Download Gradle/Maven packages via Gradle mirrors, falling back to the next mirror on failure.
+    /// Run Gradle dependency-resolving commands through configured Maven mirrors.
+    #[command(
+        after_help = "Common tasks: build, sync, assemble, check, test, dependencies. Other Gradle tasks are forwarded."
+    )]
     Gradle {
         #[command(subcommand)]
         command: GradleCommand,
+    },
+    /// Run Maven dependency-resolving goals through configured Maven mirrors.
+    #[command(
+        alias = "mvn",
+        after_help = "Common goals: compile, test, package, verify, install, sync. Other Maven goals are forwarded."
+    )]
+    Maven {
+        #[command(subcommand)]
+        command: MavenCommand,
     },
 }
 
@@ -86,13 +98,28 @@ pub enum GradleCommand {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// Forward any other Gradle task, such as build, sync, test, or dependencies.
+    #[command(external_subcommand)]
+    External(Vec<String>),
+}
+
+#[derive(Subcommand)]
+pub enum MavenCommand {
+    /// Forward a Maven goal or lifecycle phase, such as compile, test, package, verify, or install.
+    #[command(external_subcommand)]
+    External(Vec<String>),
+}
+
+fn is_maven_coordinate(value: &str) -> bool {
+    !value.starts_with('-') && value.matches(':').count() >= 1 && !value.contains('/')
 }
 
 /// Runs a single benchmark for the given package manager name and prints
 /// the results to stdout.
 pub async fn run_once(name: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let registry = Registry::from_str(name)
-        .ok_or_else(|| format!("Unknown registry '{name}'. Use 'pypi', 'npm', or 'gradle'."))?;
+    let registry = Registry::from_str(name).ok_or_else(|| {
+        format!("Unknown registry '{name}'. Use 'pypi', 'npm', 'gradle', or 'maven'.")
+    })?;
 
     let config = load_mirrors(registry)?;
     println!(
@@ -167,7 +194,53 @@ pub async fn run_command(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         }) => uv::add(&args).await,
         Some(Commands::Gradle {
             command: GradleCommand::Install { args },
-        }) => gradle::install(&args).await,
+        }) => {
+            if args.is_empty() || !args.iter().all(|arg| is_maven_coordinate(arg)) {
+                let mut command = vec!["install".to_string()];
+                command.extend(args);
+                gradle::run(&command).await
+            } else {
+                gradle::install(&args).await
+            }
+        }
+        Some(Commands::Gradle {
+            command: GradleCommand::External(args),
+        }) => gradle::run(&args).await,
+        Some(Commands::Maven {
+            command: MavenCommand::External(args),
+        }) => maven::run(&args).await,
         None => Ok(()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Cli, Commands, GradleCommand, MavenCommand};
+    use clap::Parser;
+
+    #[test]
+    fn parses_gradle_project_commands() {
+        let cli = Cli::try_parse_from(["ayeneh-cli", "gradle", "build", "--refresh-dependencies"])
+            .expect("Gradle task should parse");
+
+        match cli.command {
+            Some(Commands::Gradle {
+                command: GradleCommand::External(args),
+            }) => assert_eq!(args, ["build", "--refresh-dependencies"]),
+            _ => panic!("expected an external Gradle command"),
+        }
+    }
+
+    #[test]
+    fn parses_maven_goals() {
+        let cli = Cli::try_parse_from(["ayeneh-cli", "mvn", "install", "-DskipTests"])
+            .expect("Maven goal should parse");
+
+        match cli.command {
+            Some(Commands::Maven {
+                command: MavenCommand::External(args),
+            }) => assert_eq!(args, ["install", "-DskipTests"]),
+            _ => panic!("expected an external Maven command"),
+        }
     }
 }

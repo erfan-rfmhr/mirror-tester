@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-`ayeneh`: Rust 2021 Cargo workspace. Benchmarks package registry mirrors, reports performance, installs Python packages with mirror fallback. Supports PyPI + npm. Scripted CLI + interactive terminal UI.
+`ayeneh`: Rust 2021 Cargo workspace. Benchmarks package registry mirrors, reports performance, installs packages with mirror fallback. Supports PyPI, npm, and Gradle (Maven repositories). Scripted CLI + interactive terminal UI.
 
 Runtime networked: benchmark resolves + downloads real package archive from each mirror, writes briefly to OS temp dir, deletes, records latency. Never installs or executes benchmark package.
 
@@ -10,12 +10,11 @@ Runtime networked: benchmark resolves + downloads real package archive from each
 
 ```text
 crates/
-  core/       Shared library: mirrors, benchmarking, pip, reports, scheduler
+  core/       Shared library
   cli/        `ayeneh-cli` command parsing and command handlers
   tui/        `ayeneh-tui` Ratatui/Crossterm interface
-data/         Static mirror configuration for PyPI and npm
-reports/      Generated JSON reports (ignored by Git, except `.gitkeep`)
-.github/      CI and release workflows
+data/         Static mirror configuration
+.github/      CI workflows
 ARCHITECTURE.md
 Cargo.toml
 Makefile
@@ -41,9 +40,9 @@ Dependency rules:
 
 ### Mirror Configuration
 
-`data/pypi.json` + `data/npm.json` each contain:
+`data/pypi.json`, `data/npm.json`, and `data/gradle.json` each contain:
 
-- `package`: sample package downloaded during benchmarks
+- `package`: sample package downloaded during benchmarks (`group:artifact` for Gradle)
 - `mirrors`: ordered list of mirror base URLs
 
 Mirror discovery static; no scraping or auto-discovery. TUI add-mirror appends directly to selected JSON config.
@@ -58,6 +57,7 @@ Reports: `MIRROR_REPORTS_DIR` first, else `reports/` dir near executable or work
 - 15s `reqwest` client timeout per attempt by default (`MIRROR_TIMEOUT_SECS`).
 - PyPI: resolve archive from PEP 503 simple index.
 - npm: resolve `dist.tarball` from registry `/latest` metadata.
+- Gradle/Maven: resolve the `<release>` version from the artifact's `maven-metadata.xml`, then download the matching `{artifact}-{version}.jar`.
 - Avg successful attempt latencies; failed attempts lower success rate, do not abort run.
 - Zero-success mirrors marked timed out, sort last.
 - Else sort by avg latency ascending.

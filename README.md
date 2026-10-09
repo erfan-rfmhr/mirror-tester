@@ -11,7 +11,7 @@ A terminal tool that installs packages from mirrors, benchmarks, and reports res
 |----------------|-----------------------|
 |PyPi|pip, uv|
 |npm |npm|
-|Gradle|gradle (Maven repositories)|
+|Gradle/Maven|gradle, mvn (Maven repositories)|
 
 
 ## Features
@@ -96,20 +96,45 @@ Install npm packages from mirrors:
 ayeneh-cli npm install <package>
 ```
 
-Download Gradle/Maven packages from mirrors:
+Run Gradle dependency-resolving project commands through the configured Maven
+mirrors. The command runs in the current Gradle project directory and retries
+with the next mirror if dependency resolution fails:
+
+```bash
+ayeneh-cli gradle build
+ayeneh-cli gradle sync
+ayeneh-cli gradle test --refresh-dependencies
+```
+
+`sync` is an Ayeneh command that resolves every resolvable Gradle
+configuration. It is useful from a terminal or CI; IDE sync itself is not a
+portable Gradle CLI task. Any other Gradle task is forwarded as well.
+
+Run Maven lifecycle phases and plugin goals through the same mirror list:
+
+```bash
+ayeneh-cli maven compile
+ayeneh-cli maven test
+ayeneh-cli maven package
+ayeneh-cli maven verify
+ayeneh-cli maven install
+ayeneh-cli maven sync
+```
+
+`sync` maps to Maven's `dependency:resolve`. Maven commands also retry with the
+next configured mirror and do not modify `pom.xml` or other project files.
+
+For direct coordinate downloads, the existing Gradle shortcut remains
+available. The version may be omitted, in which case Gradle resolves the
+newest available one:
 
 ```bash
 ayeneh-cli gradle install com.google.guava:guava:34.0.0-jre
-```
-
-The version may be omitted, in which case the newest available one is resolved:
-
-```bash
 ayeneh-cli gradle install com.google.guava:guava
 ```
 
 Gradle artifacts are downloaded into Gradle's own dependency cache, so a later
-build that uses the same coordinates resolves them without hitting the network.
+build that uses the same coordinates can reuse them.
 
 Run a one-off benchmark from the command line:
 

@@ -1,0 +1,36 @@
+// Test fixture for ayeneh's Gradle/Maven support.
+//
+// A real, self-contained Gradle project whose dependencies resolve from the
+// same Maven mirrors listed in data/gradle.json. Analogous to
+// requirements-test.txt on the pip side: it lists the packages we expect to be
+// downloaded through a mirror.
+//
+// Usage:
+//   gradle resolveDeps        # download the dependencies below via the mirrors
+
+plugins {
+    id 'java'
+}
+
+repositories {
+    // Keep in sync with data/gradle.json ("mirrors").
+    maven { url = uri('https://en-mirror.ir/') }
+    maven { url = uri('https://maven.myket.ir/') }
+    maven { url = uri('https://mirrors.huaweicloud.com/repository/maven/') }
+}
+
+dependencies {
+    implementation 'com.google.guava:guava:34.0.0-jre'
+    implementation 'org.apache.commons:commons-lang3:3.17.0'
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+}
+
+// Forces artifact resolution (and therefore the download) without compiling.
+tasks.register('resolveDeps') {
+    def runtimeClasspath = configurations.runtimeClasspath
+    doLast {
+        runtimeClasspath.resolve().each { file ->
+            println "Resolved: ${file}"
+        }
+    }
+}

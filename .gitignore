@@ -1,2 +1,3 @@
 target
 reports/*.json
+gradle-test/.gradle

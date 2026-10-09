@@ -1,0 +1,149 @@
+name: Gradle and Maven Package Management Support
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  AYN_DATA_DIR: /tmp/ayeneh-ci-data
+
+jobs:
+  gradle-maven-install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Set up Java 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: "17"
+
+    - name: Set up Gradle
+      uses: gradle/actions/setup-gradle@v4
+      with:
+        gradle-version: "8.14.3"
+
+    - name: Install Maven
+      run: |
+        sudo apt-get update
+        sudo apt-get install --no-install-recommends --yes maven
+
+    - name: Build ayeneh-cli
+      run: cargo build --release -p ayeneh-cli
+
+    - name: Configure Maven Central mirror
+      run: |
+        mkdir -p "$AYN_DATA_DIR"
+        cat > "$AYN_DATA_DIR/gradle.json" <<'EOF'
+        {
+          "package": "junit:junit:4.13.2",
+          "mirrors": ["https://repo.maven.apache.org/maven2/"]
+        }
+        EOF
+
+    - name: Prepare Gradle smoke-test project
+      run: |
+        project="$RUNNER_TEMP/gradle-smoke-test"
+        mkdir -p "$project/src/test/java/example"
+        cat > "$project/settings.gradle" <<'EOF'
+        rootProject.name = 'ayeneh-gradle-smoke-test'
+        EOF
+        cat > "$project/build.gradle" <<'EOF'
+        plugins {
+            id 'java'
+        }
+        repositories {
+            mavenCentral()
+        }
+        dependencies {
+            testImplementation 'junit:junit:4.13.2'
+        }
+        EOF
+        cat > "$project/src/test/java/example/SmokeTest.java" <<'EOF'
+        package example;
+
+        import static org.junit.Assert.assertTrue;
+        import org.junit.Test;
+
+        public class SmokeTest {
+            @Test
+            public void resolvesTestDependency() {
+                assertTrue(true);
+            }
+        }
+        EOF
+
+    - name: Run Gradle test through ayeneh-cli
+      working-directory: ${{ runner.temp }}/gradle-smoke-test
+      run: '"${{ github.workspace }}/target/release/ayeneh-cli" gradle test'
+
+    - name: Prepare Maven smoke-test project
+      run: |
+        project="$RUNNER_TEMP/maven-smoke-test"
+        mkdir -p "$project/src/test/java/example"
+        cat > "$project/pom.xml" <<'EOF'
+        <project xmlns="http://maven.apache.org/POM/4.0.0"
+                 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+          <modelVersion>4.0.0</modelVersion>
+          <groupId>org.ayeneh</groupId>
+          <artifactId>maven-smoke-test</artifactId>
+          <version>1.0-SNAPSHOT</version>
+          <properties>
+            <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+            <maven.compiler.source>8</maven.compiler.source>
+            <maven.compiler.target>8</maven.compiler.target>
+          </properties>
+          <dependencies>
+            <dependency>
+              <groupId>junit</groupId>
+              <artifactId>junit</artifactId>
+              <version>4.13.2</version>
+              <scope>test</scope>
+            </dependency>
+          </dependencies>
+          <build>
+            <plugins>
+              <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+              </plugin>
+              <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+              </plugin>
+            </plugins>
+          </build>
+        </project>
+        EOF
+        cat > "$project/src/test/java/example/SmokeTest.java" <<'EOF'
+        package example;
+
+        import static org.junit.Assert.assertTrue;
+        import org.junit.Test;
+
+        public class SmokeTest {
+            @Test
+            public void resolvesTestDependency() {
+                assertTrue(true);
+            }
+        }
+        EOF
+
+    - name: Run Maven test through ayeneh-cli
+      working-directory: ${{ runner.temp }}/maven-smoke-test
+      run: '"${{ github.workspace }}/target/release/ayeneh-cli" maven test'

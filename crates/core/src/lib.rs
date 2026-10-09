@@ -7,6 +7,7 @@ pub mod app;
 pub mod benchmark;
 pub mod config;
 pub mod gradle;
+pub mod maven;
 pub mod mirror;
 pub mod npm;
 pub mod pip;
